@@ -1,58 +1,37 @@
+# File Name: symptom_checker.py
+
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
-import joblib
+import sys
+import os
 
-dataset_df = pd.read_csv("dataset.csv")  
-description_df = pd.read_csv("symptom_Description.csv")  
+# --- Configuration ---
+DOWNLOADED_FILE_NAME = "Symptom2Disease.csv" 
+TARGET_FILE_NAME = "symptoms_text_data.csv"
 
-symptom_cols = [f"Symptom_{i}" for i in range(1, 18)]  # Symptom_1 to Symptom_17
-dataset_df['Symptoms_List'] = dataset_df[symptom_cols].apply(
-    lambda x: [str(s).strip().lower() for s in x if pd.notna(s)],
-    axis=1
-)
+# --- Main Execution ---
 
-dataset_df['Disease'] = dataset_df['Disease'].str.lower().str.strip()  # ensure lowercase
+print("Starting data preparation for BioBERT training...")
 
-all_symptoms = sorted(list({symptom for sublist in dataset_df['Symptoms_List'] for symptom in sublist}))
-print(f"Number of unique symptoms: {len(all_symptoms)}")
+try:
+    # 1. Load the downloaded file
+    df = pd.read_csv(DOWNLOADED_FILE_NAME)
+except FileNotFoundError:
+    print(f"CRITICAL ERROR: Please ensure the downloaded file is named '{DOWNLOADED_FILE_NAME}' and is in the 'src' folder.")
+    sys.exit(1)
 
-# -----------------------------
-# 5. Multi-hot encode symptoms
-# -----------------------------
-for symptom in all_symptoms:
-    dataset_df[symptom] = dataset_df['Symptoms_List'].apply(lambda x: 1 if symptom in x else 0)
+# 2. Ensure columns are correctly named and select only 'label' and 'text'
+# The Symptom2Disease dataset uses 'label' and 'text' columns, which we confirm here.
+if 'label' not in df.columns or 'text' not in df.columns:
+    print("CRITICAL ERROR: The downloaded file does not contain 'label' and 'text' columns.")
+    print("Please verify the column names in the Symptom2Disease CSV.")
+    sys.exit(1)
 
-# -----------------------------
-# 6. Prepare features and labels
-# -----------------------------
-X = dataset_df[all_symptoms]
-y = dataset_df['Disease']
+# 3. Clean and finalize the dataset
+df['label'] = df['label'].str.strip().str.lower()
+final_df = df[['text', 'label']].drop_duplicates().reset_index(drop=True)
 
-# -----------------------------
-# 7. Train-test split
-# -----------------------------
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
+# 4. Save the file in the format expected by the trainer
+final_df.to_csv(TARGET_FILE_NAME, index=False)
 
-# -----------------------------
-# 8. Train Random Forest Classifier
-# -----------------------------
-clf = RandomForestClassifier(n_estimators=200, random_state=42)
-clf.fit(X_train, y_train)
-
-# -----------------------------
-# 9. Evaluate model
-# -----------------------------
-y_pred = clf.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Test Accuracy: {accuracy:.4f}")
-print(classification_report(y_test, y_pred))
-
-# -----------------------------
-# 10. Save the trained model
-# -----------------------------
-joblib.dump(clf, "symptom_checker_model.pkl")
-print("Trained model saved as 'symptom_checker_model.pkl'")
+print(f"Successfully prepared the new training file: {TARGET_FILE_NAME}")
+print(f"Total unique training examples: {len(final_df)}")
