@@ -1,0 +1,17 @@
+venv/
+.venv/
+/env/
+Pipfile.lock
+
+
+__pycache__/
+*.pyc
+*.pyd
+*.so
+
+/src/biobert_saved_model/ 
+/src/*.pkl # Ignore metadata and temporary model files
+/src/symptoms_text_data.csv # Generated file
+
+.DS_Store
+Thumbs.db
